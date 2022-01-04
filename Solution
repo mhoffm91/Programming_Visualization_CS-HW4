@@ -1,0 +1,170 @@
+# Home Assignment #
+
+# Using the Bayes' Theorem, estimate a "naive" vaccince effectiveness parameter. (Bonus: why is it naive? :-))
+# That is, estimate the conditional probability of being hospitalized
+# given the individual is fully vaccinated.
+# Do the same analysis for the probability of being taken to an ICU given 
+# vaccination. 
+
+# ----------------------------------------------------------- #
+# Hint: Bayes' Theorem = >
+# P(H|V) ... Probability of being hospitalized (icu) given state of being fully vaccinated.
+# P(V|H) ... Probability of being vaccinated given hospitalization.
+# P(H) ... Probability of being hospitalized
+# P(V) ... Probability of being vaccinated.
+
+# == > P(H|V) = [P(V|H) * P(H)] / P(V) 
+# == > P(H|V) = [P(V|H) * P(H)] / [P(V|H) * P(H) + P(V | not H) * P(not H)
+
+# The most naive version would be:
+# P(V|H) = (number of vaccinated covid patients in hospital) / (covid patients)
+# P(H) = (number of covid patients in hospital) / (population)
+# P(V) = (number of fully vacinated) / (population)
+
+# ----------------------------------------------------------- #
+# To successfully master this assignment you should write a function (comparable to the OLS we did in class)
+# that does this analysis for you and presents you with the parameter estimate of interest stored in a 
+# vector or list.
+# The function should be able to deal with missings! Run in the presence of missings.
+#
+# Do this analysis for each "7 day moving window" from the start of 
+# data availability to the most recent date available.
+# Use data at the Bezirks-Level (State level of Bezirk is not available) and then pool the analysis.
+# Plot the results in a nice ggplot.
+
+# ----------------------------------------------------------- #
+# Think about assumptions:
+# Which data to use for which argument (e.g. valid vaccination certificates as opposed to number of vaccinations,
+#                                              only fully vaccinated,
+#                                              how to treat recovered people?)
+# and interpretation of the parameter estimate.
+#
+# ----------------------------------------------------------- #
+
+# Grading: 
+# Each submission is subject to random selection in order to be 
+# presented by the authors. If the authors are not able to present the 
+# assignment, 0 points are awarded. 
+# Given that there were some unfortunate issues of within group cooperation, 
+# you're free to choose your co-authors for this homework.
+
+# Extra Points:
+# Bootstrap your parameter-estimates within each 7-day moving window to
+# obtain bootstrapped confidence intervals.
+# ----------------------------------------------------------- #
+
+
+
+
+rm(list=ls())
+
+
+# Download data from Sources:
+
+url <- "https://github.com/statistikat/coronaDAT/raw/master/archive/20211216/data/20211216_140201_orig_csv_ages.zip"
+temp <- tempfile()
+download.file(url, temp)
+#Unzip Covid Faelle per Altersgruppe
+unzip(temp, "CovidFaelle_Altersgruppe.csv")
+covidfaelle_altersgruppe <- read.csv("CovidFaelle_Altersgruppe.csv", sep = ";",encoding = "UTF-8")
+
+#Unzip Covid Faelle GKZ
+unzip(temp, "CovidFaelle_GKZ.csv")
+covidfaelle_gkz <- read.csv("CovidFaelle_GKZ.csv", sep = ";",encoding = "UTF-8")
+
+#Unzip Covid Faelle Timeline
+unzip(temp, "CovidFaelle_Timeline.csv")
+covidfaelle_timeline <- read.csv("CovidFaelle_Timeline.csv", sep = ";",encoding = "UTF-8")
+
+#Unzip Covid Faelle GKZ
+unzip(temp, "CovidFaelle_Timeline_GKZ.csv")
+covidfaelle_timeline_gkz <- read.csv("CovidFaelle_Timeline_GKZ.csv", sep = ";",encoding = "UTF-8")
+
+#Unzip Covid Faelle Delta
+unzip(temp, "CovidFaelleDelta.csv")
+covidfaelle_delta <- read.csv("CovidFaelleDelta.csv", sep = ";",encoding = "UTF-8")
+
+#Unzip Covidfallzahlen
+unzip(temp, "CovidFallzahlen.csv")
+covidfallzahlen <- read.csv("CovidFallzahlen.csv", sep = ";",encoding = "UTF-8")
+
+#Unzip Hospitalisierungen
+unzip(temp, "Hospitalisierung.csv")
+hospitalisierungen <- read.csv("Hospitalisierung.csv", sep = ";",encoding = "UTF-8")
+
+unlink(temp)
+
+
+# Download data from Sources (Impfungen):
+url <- "https://github.com/statistikat/coronaDAT/raw/master/archive/20220102/data/20220102_235959_impfdaten_orig2_csv_bmsgpk.zip"
+temp <- tempfile()
+download.file(url, temp)
+#Unzip Covid impfungen
+unzip(temp, "file2631fd53daa9a3.csv")
+impfungen <- read.csv("file2631fd53daa9a3.csv",sep = ";",encoding = "UTF-8")
+unlink(temp)
+
+# ------------------------------------------------------------------------------ #
+
+
+
+# Home Assignment #
+
+# Using the Bayes' Theorem, estimate a "naive" vaccince effectiveness parameter. (Bonus: why is it naive? :-))
+# That is, estimate the conditional probability of being hospitalized
+# given the individual is fully vaccinated.
+
+# Do the same analysis for the probability of being taken to an ICU given 
+# vaccination. 
+
+# ----------------------------------------------------------- #
+# Hint: Bayes' Theorem = >
+# P(H|V) ... Probability of being hospitalized (icu) given state of being fully vaccinated.
+# P(V|H) ... Probability of being vaccinated given hospitalization.
+# P(H) ... Probability of being hospitalized
+# P(V) ... Probability of being vaccinated.
+
+# == > P(H|V) = [P(V|H) * P(H)] / P(V) 
+# == > P(H|V) = [P(V|H) * P(H)] / [P(V|H) * P(H) + P(V | not H) * P(not H)
+
+# The most naive version would be:
+# P(V|H) = (number of vaccinated covid patients in hospital) / (covid patients)
+# P(H) = (number of covid patients in hospital) / (population)
+# P(V) = (number of fully vacinated) / (population)
+
+
+# P(H) = (number of covid patients in hospital) / (population)
+covid_patients_in_hospital <- subset(hospitalisierungen , BundeslandID == 10)
+covid_patients_in_hospital$Gesamtbelegung <- covid_patients_in_hospital$NormalBettenBelCovid19 + covid_patients_in_hospital$IntensivBettenBelCovid19
+population_austria <- 8917000
+covid_patients_in_hospital$probability_hospitalization <- (covid_patients_in_hospital$Gesamtbelegung/population_austria)*100
+
+
+# P(V) = (number of fully vacinated) / (population) --> already calculated in the impfungen.csv file
+
+
+
+
+# P(V|H) = (number of vaccinated covid patients in hospital) / (covid patients)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
