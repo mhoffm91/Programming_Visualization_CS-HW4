@@ -111,6 +111,7 @@ unlink(temp)
 # Home Assignment #
 
 # Using the Bayes' Theorem, estimate a "naive" vaccince effectiveness parameter. (Bonus: why is it naive? :-))
+
 # That is, estimate the conditional probability of being hospitalized
 # given the individual is fully vaccinated.
 
@@ -133,24 +134,44 @@ unlink(temp)
 # P(V) = (number of fully vacinated) / (population)
 
 
+# ----------------------------------------------------------- #
+# Probability of being hospitalized
 # P(H) = (number of covid patients in hospital) / (population)
 covid_patients_in_hospital <- subset(hospitalisierungen , BundeslandID == 10)
 covid_patients_in_hospital$Gesamtbelegung <- covid_patients_in_hospital$NormalBettenBelCovid19 + covid_patients_in_hospital$IntensivBettenBelCovid19
 population_austria <- 8917000
 covid_patients_in_hospital$probability_hospitalization <- (covid_patients_in_hospital$Gesamtbelegung/population_austria)*100
+probabiltiy_Hospitalization <- mean(covid_patients_in_hospital$probability_hospitalization)
+probabiltiy_Hospitalization
 
-
+# ----------------------------------------------------------- #
+# Propability of being vaccinated
 # P(V) = (number of fully vacinated) / (population) --> already calculated in the impfungen.csv file
+probability_vaccination <- mean(impfungen$valid_certificates_percent)
+probability_vaccination
 
 
-
-
+# ----------------------------------------------------------- #
+# Probability of being vaccinated, given hospitalization
 # P(V|H) = (number of vaccinated covid patients in hospital) / (covid patients)
 
 
 
 
 
+#define function for Bayes' Theorem
+bayesTheorem <- function(pVH, pH, pV) {
+  
+  
+  pHV <- (pVH * pH) / (pV/100)
+  return(pHV)
+}
+
+#define probabilities
+probability_vaccination_given_hospitalization <- 0.26
+
+#use function to calculate conditional probability
+bayesTheorem(probability_vaccination_given_hospitalization, probabiltiy_Hospitalization, probability_vaccination)
 
 
 
