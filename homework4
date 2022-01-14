@@ -1,0 +1,179 @@
+# Home Assignment #
+
+rm(list=ls())
+
+# Download the relevant packages
+packages = c("ggplot2",
+             "readr",
+             "tidyverse",
+             "dplyr",
+             "here",
+             "lubridate")
+
+## Now load or install&load all
+package.check <- lapply(
+  packages,
+  FUN = function(x) {
+    if (!require(x, character.only = TRUE)) {
+      install.packages(x, dependencies = TRUE)
+      library(x, character.only = TRUE)
+    }
+  }
+)
+# ------------------------------------------------------------------------------ #
+# Download data from Sources:
+
+url <- "https://github.com/statistikat/coronaDAT/raw/master/archive/20211216/data/20211216_140201_orig_csv_ages.zip"
+temp <- tempfile()
+download.file(url, temp)
+
+# function to unzip files
+
+#Unzip Covid Faelle Timeline
+unzip(temp, "CovidFaelle_Timeline.csv")
+covidfaelle_timeline <- read.csv("CovidFaelle_Timeline.csv", sep = ";",encoding = "UTF-8")
+
+#Unzip Hospitalisierungen
+unzip(temp, "Hospitalisierung.csv")
+hospitalisierungen <- read.csv("Hospitalisierung.csv", sep = ";",encoding = "UTF-8")
+
+unlink(temp)
+
+
+# Download data from Sources (Impfungen):
+url <- "https://github.com/statistikat/coronaDAT/raw/master/archive/20220102/data/20220102_235959_impfdaten_orig2_csv_bmsgpk.zip"
+temp <- tempfile()
+download.file(url, temp)
+#Unzip Covid impfungen
+unzip(temp, "file2631fd53daa9a3.csv")
+impfungen <- read.csv("file2631fd53daa9a3.csv",sep = ";",encoding = "UTF-8")
+unlink(temp)
+
+
+rm(package.check, packages, temp, url)
+
+# ------------------------------------------------------------------------------ #
+
+# DATA CLEANING AND MERGING 
+
+# Rename the columns names in the datasets
+names(impfungen)[names(impfungen) == 'X.U.FEFF.date'] <- 'date'
+names(covidfaelle_timeline)[names(covidfaelle_timeline) == 'X.U.FEFF.Time'] <- 'Time'
+names(hospitalisierungen)[names(hospitalisierungen) == 'X.U.FEFF.Meldedatum'] <- 'Meldedatum'
+
+
+# Remove unncessary columns in the datasets
+covidfallzahlen$MeldeDatum <- NULL
+
+
+# Vaccination rate per state 
+vaccination_per_state <- impfungen %>% 
+  mutate(municipality_id = as.numeric(substr(as.character(municipality_id), 1, 1))) %>%
+  group_by(municipality_id, date) %>% 
+  summarise(vac_pop = sum(municipality_population),
+            valid_certificates = sum(valid_certificates)) %>% 
+  mutate(date = as.Date(substr(date, 1, 10)))
+
+
+# Covid cases
+covid_cases <- covidfaelle_timeline %>% 
+  select(one_of(c(
+    "Time", "Bundesland", "BundeslandID",
+    "AnzEinwohner", "AnzahlFaelle", "AnzahlTotTaeglich", "AnzahlGeheiltTaeglich"
+  ))) %>% 
+  mutate(Time = substr(Time, 1, 10)) %>% 
+  mutate(Time = as.Date(Time, "%d.%m.%Y"))
+colnames(covid_cases) <- c(
+  "date", "state", "state_id", "state_population",
+  "state_cases", "state_deaths", "state_convalescent"
+)
+
+
+# Hospitalizations
+hospitalization <- hospitalisierungen %>% 
+  select(one_of(c(
+    "Meldedatum", "Bundesland", "BundeslandID",
+    "NormalBettenBelCovid19", "IntensivBettenBelCovid19"
+  ))) %>% 
+  mutate(Meldedatum = substr(Meldedatum, 1, 10)) %>% 
+  mutate(Meldedatum = as.Date(Meldedatum, "%d.%m.%Y"))
+colnames(hospitalization) <- c(
+  "date", "state", "state_id", "inpatient", "icu"
+)
+
+# Merge datasets
+df <- covid_cases %>% 
+  left_join(hospitalization) %>% 
+  left_join(vaccination_per_state) %>% 
+  arrange(date, state_id) %>% 
+  group_by(state_id) %>% 
+  mutate(
+    inpatient = lead(inpatient, n = 10),
+    state_population = state_population - state_deaths - lag(state_cases, n = 7) # note .... 
+  )
+
+# remove unncessary datasets
+rm(covidfaelle_timeline, impfungen, hospitalisierungen, hospitalization, vaccination_per_state, covid_cases)
+
+# ------------------------------------------------------------------------------ #
+# ------------------------------------------------------------------------------ #
+# ------------------------------------------------------------------------------ #
+
+
+
+# 1. Questions why naive?
+
+# 2. Question: Vaccine effecitvences parameter
+
+
+
+# P(H) = (number of covid patients in hospital) / (population)
+
+
+# ------------------------------------------------------------------------------ #
+# Propability of being vaccinated
+# P(V) = (number of fully vacinated) / (population) --> already calculated in the impfungen.csv file
+
+
+
+# ------------------------------------------------------------------------------ #
+# Probability of being vaccinated, given hospitalization
+# P(V|H) = (number of vaccinated covid patients in hospital) / (covid patients)
+
+
+#define function for Bayes' Theorem
+bayesTheorem <- function(pVH, pH, pV) {
+  
+  
+  pHV <- (pVH * pH) / (pV/100)
+  return(pHV)
+}
+
+#define probabilities
+probability_vaccination_given_hospitalization <- 0.26
+
+#use function to calculate conditional probability
+bayesTheorem(probability_vaccination_given_hospitalization, probabiltiy_Hospitalization, probability_vaccination)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
