@@ -129,8 +129,7 @@ data <- filter(df, date == "2021-12-11")
 
 
 # 1. Questions why naive?
-
-  # 
+It is called naive because Naive Bayes makes the very strong assumption that all input variables are independent from each other, which is not always the case.
 
 # 2. Question: Vaccine effectiveness parameter
 
