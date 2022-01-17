@@ -41,12 +41,12 @@ unlink(temp)
 
 
 # Download data from Sources (Impfungen):
-url <- "https://github.com/statistikat/coronaDAT/raw/master/archive/20220102/data/20220102_235959_impfdaten_orig2_csv_bmsgpk.zip"
+url <- "https://github.com/statistikat/coronaDAT/raw/master/archive/20211211/data/20211211_235959_impfdaten_orig_csv_bmsgpk.zip"
 temp <- tempfile()
 download.file(url, temp)
 #Unzip Covid impfungen
-unzip(temp, "file2631fd53daa9a3.csv")
-impfungen <- read.csv("file2631fd53daa9a3.csv",sep = ";",encoding = "UTF-8")
+unzip(temp, "filef911f41aca2d7.csv")
+impfungen <- read.csv("filef911f41aca2d7.csv",sep = ";",encoding = "UTF-8")
 unlink(temp)
 
 
@@ -57,8 +57,8 @@ rm(package.check, packages, temp, url)
 # DATA CLEANING AND MERGING 
 
 # Rename the columns names in the datasets
-names(impfungen)[names(impfungen) == 'X.U.FEFF.date'] <- 'date'
-names(covidfaelle_timeline)[names(covidfaelle_timeline) == 'X.U.FEFF.Time'] <- 'Time'
+names(impfungen)[names(impfungen) == 'X.U.FEFF.Datum'] <- 'Meldedatum'
+names(covidfaelle_timeline)[names(covidfaelle_timeline) == 'X.U.FEFF.Time'] <- 'Meldedatum'
 names(hospitalisierungen)[names(hospitalisierungen) == 'X.U.FEFF.Meldedatum'] <- 'Meldedatum'
 
 
@@ -68,21 +68,26 @@ covidfallzahlen$MeldeDatum <- NULL
 
 # Vaccination rate per state 
 vaccination_per_state <- impfungen %>% 
-  mutate(municipality_id = as.numeric(substr(as.character(municipality_id), 1, 1))) %>%
-  group_by(municipality_id, date) %>% 
-  summarise(vac_pop = sum(municipality_population),
-            valid_certificates = sum(valid_certificates)) %>% 
-  mutate(date = as.Date(substr(date, 1, 10)))
+  mutate(Gemeindecode = as.numeric(substr(as.character(Gemeindecode), 1, 1))) %>%
+  group_by(Gemeindecode, Meldedatum) %>% 
+  summarise(Bevölkerung = sum(Bevölkerung),
+            gültige_zertifikate = sum(Vollimmunisierte)) %>% 
+  mutate(Meldedatum = as.Date(substr(Meldedatum, 1, 10)))
+colnames(vaccination_per_state) <- c(
+  "state_id", "date", "state_population",
+  "valid_certificates"
+)
+
 
 
 # Covid cases
 covid_cases <- covidfaelle_timeline %>% 
   select(one_of(c(
-    "Time", "Bundesland", "BundeslandID",
+    "Meldedatum", "Bundesland", "BundeslandID",
     "AnzEinwohner", "AnzahlFaelle", "AnzahlTotTaeglich", "AnzahlGeheiltTaeglich"
   ))) %>% 
-  mutate(Time = substr(Time, 1, 10)) %>% 
-  mutate(Time = as.Date(Time, "%d.%m.%Y"))
+  mutate(Meldedatum = substr(Meldedatum, 1, 10)) %>% 
+  mutate(Meldedatum = as.Date(Meldedatum, "%d.%m.%Y"))
 colnames(covid_cases) <- c(
   "date", "state", "state_id", "state_population",
   "state_cases", "state_deaths", "state_convalescent"
@@ -106,14 +111,16 @@ df <- covid_cases %>%
   left_join(hospitalization) %>% 
   left_join(vaccination_per_state) %>% 
   arrange(date, state_id) %>% 
-  group_by(state_id) %>% 
-  mutate(
-    inpatient = lead(inpatient, n = 10),
-    state_population = state_population - state_deaths - lag(state_cases, n = 7) # note .... 
-  )
+  group_by(state_id)
+
+
 
 # remove unncessary datasets
 rm(covidfaelle_timeline, impfungen, hospitalisierungen, hospitalization, vaccination_per_state, covid_cases)
+
+# Make a subset with the date "11.12.2021" because this is the only day we have the vaccination.
+# We were not able to merge all datasets to receive the vaccinations for every day
+data <- filter(df, date == "2021-12-11")
 
 # ------------------------------------------------------------------------------ #
 # ------------------------------------------------------------------------------ #
@@ -123,38 +130,49 @@ rm(covidfaelle_timeline, impfungen, hospitalisierungen, hospitalization, vaccina
 
 # 1. Questions why naive?
 
-# 2. Question: Vaccine effecitvences parameter
+  # 
+
+# 2. Question: Vaccine effectiveness parameter
 
 
 
 # P(H) = (number of covid patients in hospital) / (population)
 
+c_h <- max(data$inpatient)
+p <- max(data$state_population)
+p_h <- c_h/p
 
-# ------------------------------------------------------------------------------ #
 # Propability of being vaccinated
 # P(V) = (number of fully vacinated) / (population) --> already calculated in the impfungen.csv file
 
-
+v <- sum(data$valid_certificates, na.rm=T)
+p_v <- v/p
 
 # ------------------------------------------------------------------------------ #
 # Probability of being vaccinated, given hospitalization
 # P(V|H) = (number of vaccinated covid patients in hospital) / (covid patients)
 
+c <- max(data$state_cases)
+p_v_h <- 0.04 # Assumption
+
+# P(V|H) = (number of vaccinated covid patients in hospital) / (covid patients)
+# P(H) = (number of covid patients in hospital) / (population)
+# P(V) = (number of fully vacinated) / (population)
+
 
 #define function for Bayes' Theorem
 bayesTheorem <- function(pVH, pH, pV) {
-  
-  
   pHV <- (pVH * pH) / (pV/100)
   return(pHV)
 }
 
-#define probabilities
-probability_vaccination_given_hospitalization <- 0.26
 
 #use function to calculate conditional probability
-bayesTheorem(probability_vaccination_given_hospitalization, probabiltiy_Hospitalization, probability_vaccination)
+bayesTheorem(p_v_h, p_h, p_v)
 
+
+
+# The result shows, that a Person who is vaccinated has a 0,1% chance of getting hospitalized.
 
 
 
